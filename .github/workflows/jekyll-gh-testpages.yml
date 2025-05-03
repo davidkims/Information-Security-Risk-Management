@@ -6,10 +6,11 @@ on:
       - main
   workflow_dispatch:
 
+# ── 여기서 GITHUB_TOKEN 권한을 반드시 write로 설정 ──────────────────
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write    # 리포지토리 파일 푸시 권한
+  pages: write       # Pages API 권한 (optional for configure-pages)
+  id-token: write    # OIDC (peaceiris 액션엔 필요 없음)
 
 jobs:
   build-and-deploy:
@@ -51,8 +52,13 @@ jobs:
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v3
         with:
+          # 1) 기본적으로는 GITHUB_TOKEN 사용
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: _site
           user_name: github-actions
           user_email: github-actions@github.com
+
+          # 2) 만약 위에서 계속 403 에러 발생 시, 
+          #    개인 액세스 토큰을 GH_PAGES_PAT라는 시크릿에 저장하고 아래처럼 교체하세요.
+          # github_token: ${{ secrets.GH_PAGES_PAT }}
