@@ -1,36 +1,51 @@
- jobs:
-   # Build job
-   build:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout
-         uses: actions/checkout@v4
--      - name: Setup Pages
--        uses: actions/configure-pages@v5
-+      - name: Setup Pages
-+        id: pages
-+        uses: actions/configure-pages@v5
-+        with:
-+          # 반드시 GITHUB_TOKEN을 토큰으로 전달해야 권한이 부여됩니다
-+          token: ${{ secrets.GITHUB_TOKEN }}
-+          # enablement: true를 주면 리포지토리에 Pages 설정이 없을 때 자동으로 생성/활성화합니다
-+          enablement: true
-       - name: Build with Jekyll
-         uses: actions/jekyll-build-pages@v1
-         with:
-           source: ./
-           destination: ./_site
-       - name: Upload artifact
-         uses: actions/upload-pages-artifact@v3
+name: Deploy Jekyll with GitHub Pages dependencies preinstalled
 
-   # Deployment job
-   deploy:
-     environment:
-       name: github-pages
-       url: ${{ steps.deployment.outputs.page_url }}
-     runs-on: ubuntu-latest
-     needs: build
-     steps:
-       - name: Deploy to GitHub Pages
-         id: deployment
-         uses: actions/deploy-pages@v4
+# ─── 여기에 on: 블록이 와야 합니다 ────────────────────────────────
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          enablement: true
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
