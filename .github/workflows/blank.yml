@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+      - name: Run a multi-line script
+        run: |
+          echo Add other actions to build,
+          echo test, and deploy your project.
+
+      # ──────────────────────────────────────────────────────────────────────
+      # 정보보호 이해의 관리 내용을 정리해서 출력해 주는 단계
+      - name: Summarize Information Security Understanding Management
+        run: |
+          python3 - << 'EOF'
+          """
+          정보보호 이해의 관리(Information Security Understanding Management)
+          - 조직 구성원 및 이해관계자가 정보보호 정책과 절차를 올바르게 이해하고
+            준수할 수 있도록 지원하는 활동
+          """
+          summary = {
+              "목적": "정보보호 정책·절차에 대한 이해도 제고 및 일관된 보안 행동 유도",
+              "적용대상": ["전사 직원", "계약자(협력사)", "이해관계자"],
+              "핵심활동": [
+                  "정기 보안 교육 및 워크숍 실시",
+                  "정책·절차 문서의 배포 및 접근성 보장",
+                  "보안 인식 캠페인(포스터, 이메일 뉴스레터 등)",
+                  "이해도 평가(퀴즈, 설문) 및 피드백 수집",
+                  "역할별 책임과 권한 명확화"
+              ],
+              "성과측정": [
+                  "교육 이수율",
+                  "이해도 평가 점수",
+                  "보안사고 발생 전후 통계"
+              ]
+          }
+
+          for key, val in summary.items():
+              print(f"{key}:")
+              if isinstance(val, list):
+                  for item in val:
+                      print(f"  - {item}")
+              else:
+                  print(f"  {val}")
+              print()
+          EOF
