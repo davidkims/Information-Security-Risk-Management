@@ -1,0 +1,50 @@
+# .github/workflows/codeql-analysis.yml
+
+name: "CodeQL Analysis with Auto-SARIF Upload"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 2 * * 1'   # 매주 월요일 02:00 UTC
+
+permissions:
+  security-events: write   # SARIF 업로드 권한
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL Scan (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ "javascript-typescript", "python", "java", "go", "csharp" ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # build-mode: autobuild  # 필요 시 활성화
+
+      - name: Autobuild (if needed)
+        uses: github/codeql-action/autobuild@v3
+        if: matrix.language == 'java' || matrix.language == 'go' || matrix.language == 'csharp'
+
+      - name: Perform CodeQL Analysis & Upload SARIF
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: true  # analyze 단계에서 자동 업로드 (기본값) 
+
+      # (선택) 추가적인 SARIF 업로드: third-party 도구 결과가 있을 경우
+      # - name: Upload external SARIF
+      #   uses: github/codeql-action/upload-sarif@v2
+      #   with:
+      #     sarif_file: path/to/third-party-tool-results.sarif
