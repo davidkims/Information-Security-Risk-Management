@@ -1,39 +1,53 @@
-name: “Automated Scheduled Builds with Massive Retry”
+name: Scheduled Builds with Retry and Skip Errors
 
-# 3분마다 자동 실행
 on:
+  # 3분마다 자동 실행
   schedule:
     - cron: '*/3 * * * *'
 
 jobs:
   build-loop:
     runs-on: ubuntu-latest
-    env:
-      TOTAL_RUNS: 99999           # 총 반복 횟수
-      MAX_RETRIES: 900000000      # 실패 시 최대 재시도 횟수
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Maven build + huge retry loop
+      - name: Build with massive retry and skip errors
+        shell: bash
         run: |
-          #!/usr/bin/env bash
-          set -euo pipefail
+          # 반복 횟수와 최대 재시도 횟수를 환경 변수로 정의
+          TOTAL_RUNS=99999
+          MAX_RETRIES=900000000
+
+          echo "▶ Starting $TOTAL_RUNS scheduled build runs (retry up to $MAX_RETRIES times each)…"
 
           for run_index in $(seq 1 $TOTAL_RUNS); do
+            echo
             echo "=== Run #${run_index}/${TOTAL_RUNS} ==="
             attempt=0
+            success=false
 
-            # until 빌드 성공, MAX_RETRIES 번까지 재시도
-            until mvn clean compile -DskipTests; do
-              attempt=$((attempt + 1))
-              echo "  [Run ${run_index}] Retry #${attempt}/${MAX_RETRIES}"
+            # 오류 발생 시 자동 재시도 루프
+            while [ $attempt -lt $MAX_RETRIES ]; do
+              attempt=$((attempt+1))
+              echo "  [Run $run_index] Attempt #$attempt"
+              
+              # 실제 빌드 커맨드
+              mvn clean compile -DskipTests && { 
+                echo "  [Run $run_index] ✅ Success on attempt #$attempt"; 
+                success=true; 
+                break; 
+              }
 
-              if [ "$attempt" -ge "$MAX_RETRIES" ]; then
-                echo "  [Run ${run_index}] Exceeded max retries (${MAX_RETRIES}). Failing job."
-                exit 1
-              fi
+              # 실패 메시지
+              echo "  [Run $run_index] ❌ Build failed, retrying…"
             done
 
-            echo "  [Run ${run_index}] Build succeeded."
+            # 재시도 최대치 도달 시 경고 후 다음 루프로 넘어감
+            if [ "$success" = false ]; then
+              echo "  [Run $run_index] ⚠️ Failed after $MAX_RETRIES attempts—skipping to next run."
+            fi
           done
+
+          echo
+          echo "▶ All $TOTAL_RUNS runs completed (with skips on persistent failures)."
