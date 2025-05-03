@@ -1,4 +1,4 @@
-name: "CodeQL Advanced"
+name: "CodeQL Advanced with BPFDoor Mitigation"
 
 on:
   push:
@@ -6,10 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
   schedule:
-    - cron: '27 20 * * 3'    # 매주 수요일 20:27 UTC
+    - cron: '27 20 * * 3'  # 매주 수요일 20:27 UTC
 
 permissions:
-  security-events: write    # 스캔 결과 업로드 권한
+  security-events: write
   contents: read
   actions: read
   packages: read
@@ -34,9 +34,39 @@ jobs:
             build-mode: manual
           - language: actions
             build-mode: none
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Prepare rollback script and set permissions
+        run: |
+          mkdir -p scripts
+          cat << 'EOF' > scripts/rollback.sh
+          #!/usr/bin/env bash
+          echo "[rollback] Reverting to last commit..."
+          git reset --hard HEAD
+          EOF
+          chmod +x scripts/rollback.sh
+
+      - name: Detect and remediate BPFDoor indicators
+        run: |
+          set -euo pipefail
+          trap 'echo "[error] Remediation failed. Running rollback..."; scripts/rollback.sh; exit 1' ERR
+
+          if grep -R --include="*.{java,py,js,go,cs}" "BPFDoor" .; then
+            echo "[remediation] BPFDoor indicators found. Cleaning up..."
+            # 예시: 모든 소스 파일에서 BPFDoor 서명 라인 제거
+            find . -type f \( -name "*.java" -o -name "*.py" -o -name "*.js" -o -name "*.go" -o -name "*.cs" \) \
+              -exec sed -i '/BPFDoor/d' {} +
+
+            git config user.name "github-actions"
+            git config user.email "github-actions@github.com"
+            git add .
+            git commit -m "chore: remove BPFDoor indicators"
+          else
+            echo "[info] No BPFDoor indicators detected."
+          fi
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -44,7 +74,6 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix['build-mode'] }}
 
-      # 수동 빌드가 필요한 언어에 대해 실제 빌드 커맨드를 여기에 추가
       - name: Build (manual)
         if: matrix.build-mode == 'manual'
         run: |
@@ -63,3 +92,5 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
