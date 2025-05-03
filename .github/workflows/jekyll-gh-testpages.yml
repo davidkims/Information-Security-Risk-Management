@@ -1,8 +1,8 @@
-name: Deploy Jekyll site to Pages
+name: Deploy Jekyll with GitHub Pages dependencies preinstalled
 
 on:
   push:
-    branches: [ main ]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -10,25 +10,40 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Ruby & install gems
-        uses: ruby/setup-ruby@v1
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
         with:
-          ruby-version: '3.1'
-          bundler-cache: true    # <-- 이 옵션이 Gemfile을 찾아 bundle install 을 자동으로 실행합니다
+          token: ${{ secrets.GITHUB_TOKEN }}
+          enablement: true
 
-      - name: Build site with Jekyll
-        run: bundle exec jekyll build --destination _site
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
 
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: _site
+        id: deployment
+        uses: actions/deploy-pages@v4
