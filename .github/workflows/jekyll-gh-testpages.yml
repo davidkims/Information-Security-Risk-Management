@@ -1,49 +1,44 @@
-name: Deploy Jekyll with GitHub Pages dependencies preinstalled
+name: Deploy Jekyll to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      # 1. 코드 체크아웃
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v5
+      # 2. Ruby 및 Bundler 설치 (Gemfile이 있을 경우)
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          enablement: true
+          ruby-version: '3.1'
+          bundler-cache: true
 
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
+      # 3. Jekyll 의존성 설치 (Gemfile이 있을 경우)
+      - name: Install dependencies
+        run: bundle install
+        working-directory: .
+
+      # 4. Jekyll 빌드
+      - name: Build site with Jekyll
+        run: bundle exec jekyll build --destination _site
+        working-directory: .
+
+      # 5. gh-pages 브랜치로 배포
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          source: ./
-          destination: ./_site
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./_site
+          # (선택) 커밋 작성자 정보
+          user_name: github-actions
+          user_email: github-actions@github.com
