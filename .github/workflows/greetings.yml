@@ -1,0 +1,51 @@
+name: Greetings
+
+on: [pull_request_target, issues]
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            안녕하세요! 블로그에 오신 것을 환영합니다. 🎉
+
+            ## 정보보호위험관리사 자격증에 필요한 사항
+
+            1. **응시자격**
+               - 학력: 제한 없음  
+               - 경력: 정보보호 관련 경력 3년 이상  
+
+            2. **시험과목**
+               - 정보보호 위험관리 개념  
+               - 위험분석 및 평가  
+               - 위험처리 전략  
+               - 법적·윤리적 요구사항  
+               - 사례연구 및 실무  
+
+            3. **합격기준**
+               - 과목별 40점 이상  
+               - 전체 평균 60점 이상  
+
+            4. **시험 일정**
+               - 연 2회 시행 (5월, 11월)  
+               - 한국인터넷진흥원(KISA) 홈페이지 참조  
+
+            더 궁금하신 점은 이슈에 남겨 주세요! 감사합니다 😊
+          pr-message: |
+            안녕하세요! 새로운 Pull Request를 만들어 주셔서 감사합니다. 🙏
+
+            블로그에 방문해 주셔서 환영합니다! 🎉
+
+            **정보보호위험관리사(Information Security Risk Manager)**  
+            • 응시자격: 학력 제한 없음, 정보보호 경력 3년 이상  
+            • 시험과목: 위험관리 개념 · 위험분석·평가 · 위험처리 · 법적·윤리적 요구사항 · 실무사례  
+            • 합격기준: 과목별 40점 이상, 평균 60점 이상  
+            • 시험 일정: 연 2회 (5월, 11월)
+
+            기여해 주셔서 감사합니다. 추가 질문은 언제든지 남겨 주세요! 😊
