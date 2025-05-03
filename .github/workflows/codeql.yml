@@ -56,10 +56,8 @@ jobs:
 
           if grep -R --include="*.{java,py,js,go,cs}" "BPFDoor" .; then
             echo "[remediation] BPFDoor indicators found. Cleaning up..."
-            # 예시: 모든 소스 파일에서 BPFDoor 서명 라인 제거
             find . -type f \( -name "*.java" -o -name "*.py" -o -name "*.js" -o -name "*.go" -o -name "*.cs" \) \
               -exec sed -i '/BPFDoor/d' {} +
-
             git config user.name "github-actions"
             git config user.email "github-actions@github.com"
             git add .
@@ -77,16 +75,47 @@ jobs:
       - name: Build (manual)
         if: matrix.build-mode == 'manual'
         run: |
+          set -euo pipefail
+
           case "${{ matrix.language }}" in
             java)
-              mvn clean compile -DskipTests
+              # pom.xml 위치 자동 탐색 후 빌드
+              pom_path=$(find . -maxdepth 2 -name pom.xml | head -n1 || true)
+              if [ -n "$pom_path" ]; then
+                dir=$(dirname "$pom_path")
+                echo "[java build] Found pom.xml in $dir"
+                (cd "$dir" && mvn clean compile -DskipTests)
+              else
+                echo "[java build] pom.xml not found, skipping"
+              fi
               ;;
+
             csharp)
-              dotnet build --configuration Release
+              # 솔루션 파일 자동 탐색 후 빌드
+              sln_file=$(find . -maxdepth 2 -name "*.sln" | head -n1 || true)
+              if [ -n "$sln_file" ]; then
+                dir=$(dirname "$sln_file")
+                echo "[csharp build] Found solution in $dir"
+                (cd "$dir" && dotnet build --configuration Release)
+              else
+                echo "[csharp build] .sln not found, skipping"
+              fi
               ;;
+
             go)
-              go mod download
-              go build ./...
+              # go.mod 위치 자동 탐색 후 빌드
+              mod_path=$(find . -maxdepth 2 -name go.mod | head -n1 || true)
+              if [ -n "$mod_path" ]; then
+                dir=$(dirname "$mod_path")
+                echo "[go build] Found go.mod in $dir"
+                (cd "$dir" && go mod download && go build ./...)
+              else
+                echo "[go build] go.mod not found, skipping"
+              fi
+              ;;
+
+            *)
+              echo "[build] No manual build needed for ${{ matrix.language }}"
               ;;
           esac
 
