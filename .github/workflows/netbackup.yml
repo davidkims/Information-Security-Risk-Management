@@ -1,7 +1,10 @@
-name: "NetBackup: Java Maven Server Backup"
+name: "NetBackup: Java Maven Server Backup (No PAT)"
 
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write  # <== GITHUB_TOKEN으로 푸시 허용
 
 jobs:
   backup-java-maven-server:
@@ -11,6 +14,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # Maven 설치
       - name: Install Maven 3.9.6
         run: |
           MAVEN_VERSION=3.9.6
@@ -19,6 +23,7 @@ jobs:
           echo "MAVEN_HOME=$HOME/apache-maven/apache-maven-${MAVEN_VERSION}" >> $GITHUB_ENV
           echo "PATH=$HOME/apache-maven/apache-maven-${MAVEN_VERSION}/bin:$PATH" >> $GITHUB_ENV
 
+      # pom.xml 없으면 예제 다운로드
       - name: Download Spring Boot project if missing
         run: |
           if [ ! -f "./pom.xml" ]; then
@@ -29,30 +34,36 @@ jobs:
             echo "✅ Project downloaded."
           fi
 
+      # 빌드
       - name: Build project with Maven
         run: |
           mvn clean package -DskipTests -Dcheckstyle.skip=true
 
+      # 슬롯 생성
       - name: Create backup slot directory
         run: |
           TIMESTAMP=$(date +"%Y%m%d-%H%M")
           echo "SLOT_DIR=.netbackup/slot-${TIMESTAMP}" >> $GITHUB_ENV
           mkdir -p ".netbackup/slot-${TIMESTAMP}/target"
           mkdir -p ".netbackup/slot-${TIMESTAMP}/config"
-          echo "✅ Created .netbackup/slot-${TIMESTAMP}"
+          echo "📦 Created backup slot: .netbackup/slot-${TIMESTAMP}"
 
-      - name: Copy files to backup slot
+      # 파일 복사
+      - name: Backup Maven project
         run: |
           cp pom.xml "${SLOT_DIR}/" || echo "⚠️ pom.xml not found"
           [ -d src ] && cp -r src "${SLOT_DIR}/" || echo "⚠️ src not found"
           [ -f target/*.jar ] && cp target/*.jar "${SLOT_DIR}/target/" || echo "⚠️ jar not found"
-          [ -d src/main/resources ] && cp -r src/main/resources/* "${SLOT_DIR}/config/" || echo "⚠️ config files not found"
-          echo "✅ Backup complete."
+          [ -d src/main/resources ] && cp -r src/main/resources/* "${SLOT_DIR}/config/" || echo "⚠️ config not found"
+          echo "✅ Files copied to backup slot"
 
-      - name: Commit and push backup to Git
+      # 커밋 및 푸시 (GITHUB_TOKEN 사용)
+      - name: Commit and Push .netbackup using GITHUB_TOKEN
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .netbackup/
           git commit -m "📦 NetBackup: Backup on $(date +'%Y-%m-%d %H:%M:%S')" || echo "ℹ️ Nothing to commit"
-          git push || echo "⚠️ Push failed (protected branch or no permission)"
+          git push origin HEAD:${{ github.ref_name }} || echo "⚠️ Push failed (protected branch or no permission)"
