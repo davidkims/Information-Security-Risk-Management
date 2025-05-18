@@ -1,61 +1,75 @@
-name: SpringBoot Setup & Maven Install
+name: Spring Boot Auto Setup
 
 on:
   workflow_dispatch:
 
 jobs:
-  setup-springboot:
+  setup:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. GitHub 저장소 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 디스크 슬롯 디렉토리 생성
-      - name: Create disk slot structure
+      # 1. 디렉토리 슬롯 생성
+      - name: Create directory structure with permissions
         run: |
-          mkdir -p ~/springboot-slots/slot1/bin
-          mkdir -p ~/springboot-slots/slot1/config
-          mkdir -p ~/springboot-slots/slot1/logs
-          echo "✅ 디스크 슬롯 디렉토리 생성 완료"
+          mkdir -p ~/springboot-slots/slot1/{bin,config,logs,tmp}
+          chmod -R 755 ~/springboot-slots
+          echo "✅ 디렉토리 생성 및 권한 부여 완료"
 
-      # 3. Maven 최신 버전 수동 설치
-      - name: Install Maven (v3.9.6)
+      # 2. Maven 수동 설치
+      - name: Download and install Maven 3.9.6
         run: |
           MAVEN_VERSION=3.9.6
           curl -sL https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.zip -o maven.zip
           unzip -q maven.zip -d ~/springboot-slots/slot1/bin
           echo "MAVEN_HOME=$HOME/springboot-slots/slot1/bin/apache-maven-${MAVEN_VERSION}" >> $GITHUB_ENV
           echo "PATH=$HOME/springboot-slots/slot1/bin/apache-maven-${MAVEN_VERSION}/bin:$PATH" >> $GITHUB_ENV
-          echo "✅ Maven ${MAVEN_VERSION} 설치 완료"
+          echo "✅ Maven 설치 완료"
+
+      # 3. pom.xml이 없으면 소스 ZIP 다운로드
+      - name: Ensure project exists (download if missing)
+        run: |
+          if [ ! -f "./pom.xml" ]; then
+            echo "⚠️ pom.xml이 없으므로 소스 ZIP을 다운로드합니다."
+            curl -L -o springboot.zip "https://github.com/spring-projects/spring-petclinic/archive/refs/heads/main.zip"
+            unzip -q springboot.zip -d ~/springboot-slots/slot1/tmp
+            mv ~/springboot-slots/slot1/tmp/spring-petclinic-main/* ./
+          else
+            echo "✅ 프로젝트 소스가 이미 존재합니다."
+          fi
 
       # 4. Maven 버전 확인
       - name: Verify Maven version
         run: mvn -v
 
-      # 5. Spring Boot 프로젝트 빌드
-      - name: Build Spring Boot app
+      # 5. Spring Boot 앱 빌드
+      - name: Build Spring Boot project
         run: |
-          cd .  # pom.xml이 루트에 있을 경우
           mvn clean package -DskipTests
           cp target/*.jar ~/springboot-slots/slot1/bin/app.jar
-          echo "✅ JAR 파일 빌드 및 슬롯 보관 완료"
+          chmod +x ~/springboot-slots/slot1/bin/app.jar
+          echo "✅ 빌드 완료 및 JAR 슬롯 보관"
 
-      # 6. 설정 파일 복사
-      - name: Store configuration files
+      # 6. 설정 파일 백업 및 복사
+      - name: Store config files (if available)
         run: |
-          cp -r src/main/resources/* ~/springboot-slots/slot1/config/
-          echo "✅ 설정 파일 복사 완료"
+          if [ -d "./src/main/resources" ]; then
+            cp -r ./src/main/resources/* ~/springboot-slots/slot1/config/
+            echo "✅ 설정 파일 복사 완료"
+          else
+            echo "⚠️ 설정 디렉토리 없음"
+          fi
 
-      # 7. 백그라운드로 Spring Boot JAR 실행
-      - name: Run Spring Boot app (background)
+      # 7. 백그라운드 실행
+      - name: Run Spring Boot JAR in background
         run: |
           nohup java -jar ~/springboot-slots/slot1/bin/app.jar > ~/springboot-slots/slot1/logs/server.log 2>&1 &
-          echo "✅ Spring Boot 서버 실행 중"
+          echo "✅ 서버 실행 완료 (logs/server.log 확인)"
 
-      # 8. 슬롯 구조 확인
-      - name: Show disk slot layout
+      # 8. 디렉토리 구조 출력
+      - name: Show slot structure
         run: |
           sudo apt-get install -y tree > /dev/null
           tree ~/springboot-slots/slot1 || find ~/springboot-slots/slot1
