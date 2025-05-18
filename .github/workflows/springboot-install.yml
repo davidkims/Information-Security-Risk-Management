@@ -8,9 +8,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. GitHub Repository Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Create disk slot structure for organized storage
       - name: Create disk slot structure
         run: |
           mkdir -p ~/springboot-slots/slot1/bin
@@ -18,34 +20,42 @@ jobs:
           mkdir -p ~/springboot-slots/slot1/logs
           echo "✅ 디스크 슬롯 디렉터리 생성 완료"
 
-      - name: Install Maven (latest)
+      # 3. Install latest Maven version into slot
+      - name: Install Maven (v3.9.6)
         run: |
           MAVEN_VERSION=3.9.6
           curl -sL https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.zip -o maven.zip
           unzip -q maven.zip -d ~/springboot-slots/slot1/bin
-          export MAVEN_HOME=~/springboot-slots/slot1/bin/apache-maven-${MAVEN_VERSION}
-          export PATH=$MAVEN_HOME/bin:$PATH
-          echo "export PATH=$MAVEN_HOME/bin:\$PATH" >> $GITHUB_ENV
+          echo "MAVEN_HOME=$HOME/springboot-slots/slot1/bin/apache-maven-${MAVEN_VERSION}" >> $GITHUB_ENV
+          echo "PATH=$HOME/springboot-slots/slot1/bin/apache-maven-${MAVEN_VERSION}/bin:$PATH" >> $GITHUB_ENV
           echo "✅ Maven ${MAVEN_VERSION} 설치 완료"
 
+      # 4. Confirm Maven works
       - name: Verify Maven version
         run: mvn -v
 
+      # 5. Build the Spring Boot project
       - name: Build Spring Boot app
         run: |
+          cd ./your-project-dir  # 🔁 꼭 수정: pom.xml이 위치한 디렉터리로 변경하세요
           mvn clean package -DskipTests
           cp target/*.jar ~/springboot-slots/slot1/bin/app.jar
           echo "✅ JAR 파일 빌드 및 슬롯 보관 완료"
 
+      # 6. Copy config files to slot
       - name: Store configuration
         run: |
-          cp -r src/main/resources/* ~/springboot-slots/slot1/config/
+          cp -r ./your-project-dir/src/main/resources/* ~/springboot-slots/slot1/config/
           echo "✅ 설정 파일 복사 완료"
 
+      # 7. Run the Spring Boot JAR file in background
       - name: Run Spring Boot app (background)
         run: |
           nohup java -jar ~/springboot-slots/slot1/bin/app.jar > ~/springboot-slots/slot1/logs/server.log 2>&1 &
           echo "✅ 서버 실행 중 (백그라운드)"
 
+      # 8. View final slot structure
       - name: Show disk slot layout
-        run: tree ~/springboot-slots/slot1 || find ~/springboot-slots/slot1
+        run: |
+          sudo apt-get install -y tree > /dev/null
+          tree ~/springboot-slots/slot1 || find ~/springboot-slots/slot1
