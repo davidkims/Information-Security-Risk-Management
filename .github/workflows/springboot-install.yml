@@ -1,0 +1,51 @@
+name: SpringBoot Setup & Maven Install
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup-springboot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create disk slot structure
+        run: |
+          mkdir -p ~/springboot-slots/slot1/bin
+          mkdir -p ~/springboot-slots/slot1/config
+          mkdir -p ~/springboot-slots/slot1/logs
+          echo "✅ 디스크 슬롯 디렉터리 생성 완료"
+
+      - name: Install Maven (latest)
+        run: |
+          MAVEN_VERSION=3.9.6
+          curl -sL https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.zip -o maven.zip
+          unzip -q maven.zip -d ~/springboot-slots/slot1/bin
+          export MAVEN_HOME=~/springboot-slots/slot1/bin/apache-maven-${MAVEN_VERSION}
+          export PATH=$MAVEN_HOME/bin:$PATH
+          echo "export PATH=$MAVEN_HOME/bin:\$PATH" >> $GITHUB_ENV
+          echo "✅ Maven ${MAVEN_VERSION} 설치 완료"
+
+      - name: Verify Maven version
+        run: mvn -v
+
+      - name: Build Spring Boot app
+        run: |
+          mvn clean package -DskipTests
+          cp target/*.jar ~/springboot-slots/slot1/bin/app.jar
+          echo "✅ JAR 파일 빌드 및 슬롯 보관 완료"
+
+      - name: Store configuration
+        run: |
+          cp -r src/main/resources/* ~/springboot-slots/slot1/config/
+          echo "✅ 설정 파일 복사 완료"
+
+      - name: Run Spring Boot app (background)
+        run: |
+          nohup java -jar ~/springboot-slots/slot1/bin/app.jar > ~/springboot-slots/slot1/logs/server.log 2>&1 &
+          echo "✅ 서버 실행 중 (백그라운드)"
+
+      - name: Show disk slot layout
+        run: tree ~/springboot-slots/slot1 || find ~/springboot-slots/slot1
