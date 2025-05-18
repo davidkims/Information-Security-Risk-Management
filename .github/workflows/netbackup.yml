@@ -1,44 +1,65 @@
-name: Java Maven NetBackup
+name: NetBackup: Java Maven Server Backup
 
 on:
   workflow_dispatch:
 
 jobs:
-  backup-java-server:
+  backup-java-maven-server:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # 1. 저장소 체크아웃
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 1. Timestamp 및 Backup 디렉토리 생성
-      - name: Create NetBackup Slot
+      # 2. Maven 설치
+      - name: Install Maven 3.9.6
+        run: |
+          MAVEN_VERSION=3.9.6
+          curl -sL https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.zip -o maven.zip
+          unzip -q maven.zip -d $HOME/apache-maven
+          echo "MAVEN_HOME=$HOME/apache-maven/apache-maven-${MAVEN_VERSION}" >> $GITHUB_ENV
+          echo "PATH=$HOME/apache-maven/apache-maven-${MAVEN_VERSION}/bin:$PATH" >> $GITHUB_ENV
+
+      # 3. 필요한 소스가 없으면 다운로드 (spring-petclinic 예시)
+      - name: Download project if missing
+        run: |
+          if [ ! -f "./pom.xml" ]; then
+            echo "⚠️ pom.xml 없음 → 예제 프로젝트 다운로드 중"
+            curl -L -o springboot.zip "https://github.com/spring-projects/spring-petclinic/archive/refs/heads/main.zip"
+            unzip -q springboot.zip -d temp-download
+            mv temp-download/spring-petclinic-main/* ./
+            echo "✅ 프로젝트 다운로드 완료"
+          fi
+
+      # 4. Maven 빌드 (checkstyle 무시)
+      - name: Build project (skip checkstyle)
+        run: |
+          mvn clean package -DskipTests -Dcheckstyle.skip=true
+
+      # 5. 디스크 슬롯 디렉토리 생성
+      - name: Create .netbackup slot
         run: |
           TIMESTAMP=$(date +"%Y%m%d-%H%M")
           SLOT_DIR=".netbackup/slot-${TIMESTAMP}"
           echo "SLOT_DIR=${SLOT_DIR}" >> $GITHUB_ENV
-          mkdir -p "${SLOT_DIR}/target"
-          mkdir -p "${SLOT_DIR}/config"
-          echo "📦 백업 디렉토리 생성 완료: ${SLOT_DIR}"
+          mkdir -p "${SLOT_DIR}/target" "${SLOT_DIR}/config"
+          echo "📁 백업 슬롯 디렉토리 생성됨: ${SLOT_DIR}"
 
-      # 2. Maven 및 Java 파일 백업 (pom.xml, JAR, src 등)
-      - name: Copy Maven project files to backup
+      # 6. 백업 파일 복사
+      - name: Backup project to .netbackup slot
         run: |
-          cp pom.xml "${SLOT_DIR}/"
-          cp -r src "${SLOT_DIR}/"
-          if [ -f target/*.jar ]; then
-            cp target/*.jar "${SLOT_DIR}/target/"
-          fi
-          if [ -d src/main/resources ]; then
-            cp -r src/main/resources/* "${SLOT_DIR}/config/"
-          fi
-          echo "✅ 프로젝트 파일 백업 완료"
+          cp pom.xml "${SLOT_DIR}/" || echo "⚠️ pom.xml 없음"
+          [ -d src ] && cp -r src "${SLOT_DIR}/" || echo "⚠️ src 없음"
+          [ -d target ] && cp target/*.jar "${SLOT_DIR}/target/" || echo "⚠️ target 또는 JAR 없음"
+          [ -d src/main/resources ] && cp -r src/main/resources/* "${SLOT_DIR}/config/" || echo "⚠️ 설정 파일 없음"
+          echo "✅ 백업 완료: ${SLOT_DIR}"
 
-      # 3. Git Commit 및 Push 백업 파일
-      - name: Commit NetBackup to Git
+      # 7. Git에 백업 푸시
+      - name: Commit and push .netbackup
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .netbackup/
-          git commit -m "📦 NetBackup: Maven/Java Server Backup - $(date +'%Y-%m-%d %H:%M:%S')" || echo "ℹ️ 변경 사항 없음"
-          git push || echo "ℹ️ 푸시 실패 (권한 문제 또는 변경 사항 없음)"
+          git commit -m "📦 NetBackup: Maven backup on $(date +'%Y-%m-%d %H:%M:%S')" || echo "ℹ️ 커밋할 변경사항 없음"
+          git push || echo "ℹ️ Git push 실패 (권한 또는 보호 브랜치)"
