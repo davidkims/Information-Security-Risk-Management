@@ -8,19 +8,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. GitHub Repository Checkout
+      # 1. GitHub 저장소 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Create disk slot structure for organized storage
+      # 2. 디스크 슬롯 디렉토리 생성
       - name: Create disk slot structure
         run: |
           mkdir -p ~/springboot-slots/slot1/bin
           mkdir -p ~/springboot-slots/slot1/config
           mkdir -p ~/springboot-slots/slot1/logs
-          echo "✅ 디스크 슬롯 디렉터리 생성 완료"
+          echo "✅ 디스크 슬롯 디렉토리 생성 완료"
 
-      # 3. Install latest Maven version into slot
+      # 3. Maven 최신 버전 수동 설치
       - name: Install Maven (v3.9.6)
         run: |
           MAVEN_VERSION=3.9.6
@@ -30,31 +30,31 @@ jobs:
           echo "PATH=$HOME/springboot-slots/slot1/bin/apache-maven-${MAVEN_VERSION}/bin:$PATH" >> $GITHUB_ENV
           echo "✅ Maven ${MAVEN_VERSION} 설치 완료"
 
-      # 4. Confirm Maven works
+      # 4. Maven 버전 확인
       - name: Verify Maven version
         run: mvn -v
 
-      # 5. Build the Spring Boot project
+      # 5. Spring Boot 프로젝트 빌드
       - name: Build Spring Boot app
         run: |
-          cd ./your-project-dir  # 🔁 꼭 수정: pom.xml이 위치한 디렉터리로 변경하세요
+          cd .  # pom.xml이 루트에 있을 경우
           mvn clean package -DskipTests
           cp target/*.jar ~/springboot-slots/slot1/bin/app.jar
           echo "✅ JAR 파일 빌드 및 슬롯 보관 완료"
 
-      # 6. Copy config files to slot
-      - name: Store configuration
+      # 6. 설정 파일 복사
+      - name: Store configuration files
         run: |
-          cp -r ./your-project-dir/src/main/resources/* ~/springboot-slots/slot1/config/
+          cp -r src/main/resources/* ~/springboot-slots/slot1/config/
           echo "✅ 설정 파일 복사 완료"
 
-      # 7. Run the Spring Boot JAR file in background
+      # 7. 백그라운드로 Spring Boot JAR 실행
       - name: Run Spring Boot app (background)
         run: |
           nohup java -jar ~/springboot-slots/slot1/bin/app.jar > ~/springboot-slots/slot1/logs/server.log 2>&1 &
-          echo "✅ 서버 실행 중 (백그라운드)"
+          echo "✅ Spring Boot 서버 실행 중"
 
-      # 8. View final slot structure
+      # 8. 슬롯 구조 확인
       - name: Show disk slot layout
         run: |
           sudo apt-get install -y tree > /dev/null
