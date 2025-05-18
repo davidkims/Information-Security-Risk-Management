@@ -1,4 +1,4 @@
-name: NetBackup: Java Maven Server Backup
+name: "NetBackup: Java Maven Server Backup"
 
 on:
   workflow_dispatch:
@@ -8,11 +8,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 저장소 체크아웃
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Maven 설치
       - name: Install Maven 3.9.6
         run: |
           MAVEN_VERSION=3.9.6
@@ -21,45 +19,40 @@ jobs:
           echo "MAVEN_HOME=$HOME/apache-maven/apache-maven-${MAVEN_VERSION}" >> $GITHUB_ENV
           echo "PATH=$HOME/apache-maven/apache-maven-${MAVEN_VERSION}/bin:$PATH" >> $GITHUB_ENV
 
-      # 3. 필요한 소스가 없으면 다운로드 (spring-petclinic 예시)
-      - name: Download project if missing
+      - name: Download Spring Boot project if missing
         run: |
           if [ ! -f "./pom.xml" ]; then
-            echo "⚠️ pom.xml 없음 → 예제 프로젝트 다운로드 중"
+            echo "⚠️ pom.xml not found. Downloading spring-petclinic..."
             curl -L -o springboot.zip "https://github.com/spring-projects/spring-petclinic/archive/refs/heads/main.zip"
-            unzip -q springboot.zip -d temp-download
-            mv temp-download/spring-petclinic-main/* ./
-            echo "✅ 프로젝트 다운로드 완료"
+            unzip -q springboot.zip -d temp
+            mv temp/spring-petclinic-main/* ./
+            echo "✅ Project downloaded."
           fi
 
-      # 4. Maven 빌드 (checkstyle 무시)
-      - name: Build project (skip checkstyle)
+      - name: Build project with Maven
         run: |
           mvn clean package -DskipTests -Dcheckstyle.skip=true
 
-      # 5. 디스크 슬롯 디렉토리 생성
-      - name: Create .netbackup slot
+      - name: Create backup slot directory
         run: |
           TIMESTAMP=$(date +"%Y%m%d-%H%M")
-          SLOT_DIR=".netbackup/slot-${TIMESTAMP}"
-          echo "SLOT_DIR=${SLOT_DIR}" >> $GITHUB_ENV
-          mkdir -p "${SLOT_DIR}/target" "${SLOT_DIR}/config"
-          echo "📁 백업 슬롯 디렉토리 생성됨: ${SLOT_DIR}"
+          echo "SLOT_DIR=.netbackup/slot-${TIMESTAMP}" >> $GITHUB_ENV
+          mkdir -p ".netbackup/slot-${TIMESTAMP}/target"
+          mkdir -p ".netbackup/slot-${TIMESTAMP}/config"
+          echo "✅ Created .netbackup/slot-${TIMESTAMP}"
 
-      # 6. 백업 파일 복사
-      - name: Backup project to .netbackup slot
+      - name: Copy files to backup slot
         run: |
-          cp pom.xml "${SLOT_DIR}/" || echo "⚠️ pom.xml 없음"
-          [ -d src ] && cp -r src "${SLOT_DIR}/" || echo "⚠️ src 없음"
-          [ -d target ] && cp target/*.jar "${SLOT_DIR}/target/" || echo "⚠️ target 또는 JAR 없음"
-          [ -d src/main/resources ] && cp -r src/main/resources/* "${SLOT_DIR}/config/" || echo "⚠️ 설정 파일 없음"
-          echo "✅ 백업 완료: ${SLOT_DIR}"
+          cp pom.xml "${SLOT_DIR}/" || echo "⚠️ pom.xml not found"
+          [ -d src ] && cp -r src "${SLOT_DIR}/" || echo "⚠️ src not found"
+          [ -f target/*.jar ] && cp target/*.jar "${SLOT_DIR}/target/" || echo "⚠️ jar not found"
+          [ -d src/main/resources ] && cp -r src/main/resources/* "${SLOT_DIR}/config/" || echo "⚠️ config files not found"
+          echo "✅ Backup complete."
 
-      # 7. Git에 백업 푸시
-      - name: Commit and push .netbackup
+      - name: Commit and push backup to Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .netbackup/
-          git commit -m "📦 NetBackup: Maven backup on $(date +'%Y-%m-%d %H:%M:%S')" || echo "ℹ️ 커밋할 변경사항 없음"
-          git push || echo "ℹ️ Git push 실패 (권한 또는 보호 브랜치)"
+          git commit -m "📦 NetBackup: Backup on $(date +'%Y-%m-%d %H:%M:%S')" || echo "ℹ️ Nothing to commit"
+          git push || echo "⚠️ Push failed (protected branch or no permission)"
